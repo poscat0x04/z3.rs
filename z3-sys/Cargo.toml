@@ -19,6 +19,7 @@ repository = "https://github.com/prove-rs/z3.rs.git"
 bindgen = { version = "0.69", default-features = false, features = ["runtime"] }
 cmake = { version = "0.1.49", optional = true }
 vcpkg = { version = "0.2.15", optional = true }
+pkg-config = "0.3.27"
 
 [features]
 bundled = ["dep:cmake"] # Build Z3 via our bundled submodule.

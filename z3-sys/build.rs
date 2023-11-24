@@ -1,8 +1,16 @@
 use std::env;
+use std::path::PathBuf;
 
 fn main() {
     #[cfg(feature = "bundled")]
-    build_bundled_z3();
+    let includes = vec![build_bundled_z3()];
+
+    #[cfg(not(feature = "bundled"))]
+    let includes = pkg_config::Config::new()
+        .statik(false)
+        .probe("z3")
+        .map(|l| l.include_paths)
+        .unwrap_or_default();
 
     #[cfg(feature = "deprecated-static-link-z3")]
     println!("cargo:warning=The 'static-link-z3' feature is deprecated. Please use the 'bundled' feature.");
@@ -17,7 +25,7 @@ fn main() {
 
     link_against_cxx_stdlib();
 
-    generate_binding(&header);
+    generate_binding(&header, &includes[..]);
 }
 
 fn link_against_cxx_stdlib() {
@@ -70,9 +78,7 @@ fn find_library_header_by_vcpkg() -> String {
 #[cfg(not(feature = "vcpkg"))]
 fn find_header_by_env() -> String {
     const Z3_HEADER_VAR: &str = "Z3_SYS_Z3_HEADER";
-    let header = if cfg!(feature = "bundled") {
-        "z3/src/api/z3.h".to_string()
-    } else if let Ok(header_path) = env::var(Z3_HEADER_VAR) {
+    let header = if let Ok(header_path) = std::env::var(Z3_HEADER_VAR) {
         header_path
     } else {
         "wrapper.h".to_string()
@@ -82,7 +88,7 @@ fn find_header_by_env() -> String {
     header
 }
 
-fn generate_binding(header: &str) {
+fn generate_binding(header: &str, includes: &[PathBuf]) {
     let out_path = std::path::PathBuf::from(env::var("OUT_DIR").unwrap());
 
     for x in &[
@@ -101,7 +107,8 @@ fn generate_binding(header: &str) {
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             .generate_comments(false)
             .rustified_enum(format!("Z3_{x}"))
-            .allowlist_type(format!("Z3_{x}"));
+            .allowlist_type(format!("Z3_{x}"))
+            .clang_args(includes.iter().map(|v| format!("-I{}", v.display())));
         if env::var("TARGET").unwrap() == "wasm32-unknown-emscripten" {
             enum_bindings = enum_bindings.clang_arg(format!(
                 "--sysroot={}/upstream/emscripten/cache/sysroot",
@@ -118,7 +125,7 @@ fn generate_binding(header: &str) {
 
 /// Build z3 with bundled source codes.
 #[cfg(feature = "bundled")]
-fn build_bundled_z3() {
+fn build_bundled_z3() -> PathBuf {
     let mut cfg = cmake::Config::new("z3");
     cfg
         // Don't build `libz3.so`, build `libz3.a` instead.
@@ -167,4 +174,6 @@ fn build_bundled_z3() {
     } else {
         println!("cargo:rustc-link-lib=static=z3");
     }
+
+    dst.join("include")
 }
