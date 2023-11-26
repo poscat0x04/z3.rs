@@ -50,7 +50,7 @@ impl<'ctx> Optimize<'ctx> {
         unsafe { Z3_optimize_assert(self.ctx.z3_ctx, self.z3_opt, ast.get_z3_ast()) };
     }
 
-    pub fn assert_and_track(&self, ast: &impl Ast<'ctx>, p: Bool<'ctx>) {
+    pub fn assert_and_track(&self, ast: &impl Ast<'ctx>, p: &Bool<'ctx>) {
         unsafe { Z3_optimize_assert_and_track(self.ctx.z3_ctx, self.z3_opt, ast.get_z3_ast(), p.get_z3_ast()) }
     }
 
