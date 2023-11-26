@@ -50,6 +50,10 @@ impl<'ctx> Optimize<'ctx> {
         unsafe { Z3_optimize_assert(self.ctx.z3_ctx, self.z3_opt, ast.get_z3_ast()) };
     }
 
+    pub fn assert_and_track(&self, ast: &impl Ast<'ctx>, p: Bool<'ctx>) {
+        unsafe { Z3_optimize_assert_and_track(self.ctx.z3_ctx, self.z3_opt, ast.get_z3_ast(), p.get_z3_ast()) }
+    }
+
     /// Assert soft constraint to the optimization context.
     /// Weight is a positive, rational penalty for violating the constraint.
     /// Group is an optional identifier to group soft constraints.
@@ -206,6 +210,25 @@ impl<'ctx> Optimize<'ctx> {
                 Z3_optimize_get_statistics(self.ctx.z3_ctx, self.z3_opt),
             )
         }
+    }
+
+    pub fn get_unsat_core(&self) -> Vec<Bool<'ctx>> {
+        let z3_unsat_core = unsafe { Z3_optimize_get_unsat_core(self.ctx.z3_ctx, self.z3_opt) };
+        if z3_unsat_core.is_null() {
+            return vec![]
+        }
+
+        let len = unsafe { Z3_ast_vector_size(self.ctx.z3_ctx, z3_unsat_core) };
+
+        let mut unsat_core = Vec::with_capacity(len as usize);
+
+        for i in 0..len {
+            let elem = unsafe { Z3_ast_vector_get(self.ctx.z3_ctx, z3_unsat_core, i) };
+            let elem = unsafe { Bool::wrap(self.ctx, elem) };
+            unsat_core.push(elem)
+        }
+
+        unsat_core
     }
 }
 
